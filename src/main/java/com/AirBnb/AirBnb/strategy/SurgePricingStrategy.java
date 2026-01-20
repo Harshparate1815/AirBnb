@@ -4,7 +4,6 @@ import com.AirBnb.AirBnb.entity.Inventory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-@Service
 
 public class SurgePricingStrategy implements PricingStrategy{
     private final PricingStrategy wrapped;

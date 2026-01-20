@@ -6,10 +6,12 @@ import com.AirBnb.AirBnb.dto.GuestDto;
 import com.AirBnb.AirBnb.entity.*;
 import com.AirBnb.AirBnb.entity.enums.BookingStatus;
 import com.AirBnb.AirBnb.exception.ResourceNotFoundException;
+import com.AirBnb.AirBnb.exception.UnAuthorisedException;
 import com.AirBnb.AirBnb.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -53,9 +55,9 @@ public class BookingServiceImpl implements BookingService{
 
         List<Inventory> inventoryList=inventoryRepository.findAndLockAvailableInventory
                 (room.getId(),
-                bookingRequest.getCheckInDate(),
-                bookingRequest.getCheckOutDate(),
-                bookingRequest.getRoomsCount()
+                        bookingRequest.getCheckInDate(),
+                        bookingRequest.getCheckOutDate(),
+                        bookingRequest.getRoomsCount()
                 );
         long daysCount= ChronoUnit.DAYS.between(bookingRequest.getCheckInDate(),bookingRequest.getCheckOutDate())+1;
 
@@ -96,29 +98,34 @@ public class BookingServiceImpl implements BookingService{
     @Override
     public BookingDto addGuest(Long bookingId, List<GuestDto> guestDtoList) {
 //          log.info("Adding guest for booking with id: {}".bookingId);
-                Booking booking=bookingRepository.findById(bookingId).orElseThrow(()->
-                        new ResourceNotFoundException("Hotel not found with id:"+bookingId));
+        Booking booking=bookingRepository.findById(bookingId).orElseThrow(()->
+                new ResourceNotFoundException("Hotel not found with id:"+bookingId));
+        User user=getCurrentUser();
+        if(user.equals(booking.getUser()))
+        {
+            throw new UnAuthorisedException("Booking does not belong to this user with id:"+user.getId());
+        }
 
-                if(hasBookingExpired(booking))
-                {
-                    throw new IllegalStateException("Booking has already expired");
-                }
+        if(hasBookingExpired(booking))
+        {
+            throw new IllegalStateException("Booking has already expired");
+        }
 
-                if(booking.getBookingStatus() != BookingStatus.RESERVED)
-                {
-                    throw new IllegalStateException("Booking is not under reserved state, cannot add guests");
-                }
+        if(booking.getBookingStatus() != BookingStatus.RESERVED)
+        {
+            throw new IllegalStateException("Booking is not under reserved state, cannot add guests");
+        }
 
-                for(GuestDto guestDto:guestDtoList)
-                {
-                    Guest guest = modelMapper.map(guestDto, Guest.class);
-                    guest.setUser(getCurrentUser());
-                    guest=guestRepository.save(guest);
-                    booking.getGuests().add(guest);
-                }
-                booking.setBookingStatus(BookingStatus.GUEST_ADDED);
-                booking=bookingRepository.save(booking);
-                return modelMapper.map(booking,BookingDto.class);
+        for(GuestDto guestDto:guestDtoList)
+        {
+            Guest guest = modelMapper.map(guestDto, Guest.class);
+            guest.setUser(user);
+            guest=guestRepository.save(guest);
+            booking.getGuests().add(guest);
+        }
+        booking.setBookingStatus(BookingStatus.GUEST_ADDED);
+        booking=bookingRepository.save(booking);
+        return modelMapper.map(booking,BookingDto.class);
     }
 
     public boolean hasBookingExpired(Booking booking)
@@ -128,8 +135,7 @@ public class BookingServiceImpl implements BookingService{
 
     public User getCurrentUser()
     {
-        User user=new User();
-        user.setId(1L);             // TODO:REMOVE DUMMY USER
-        return user;
+
+        return (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 }

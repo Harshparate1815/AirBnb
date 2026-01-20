@@ -1,0 +1,61 @@
+package com.AirBnb.AirBnb.controller;
+
+import com.AirBnb.AirBnb.dto.LoginDto;
+import com.AirBnb.AirBnb.dto.LoginResponseDto;
+import com.AirBnb.AirBnb.dto.SignUpRequestDto;
+import com.AirBnb.AirBnb.dto.UserDto;
+import com.AirBnb.AirBnb.service.AuthService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.catalina.filters.ExpiresFilter;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationServiceException;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Arrays;
+
+@RestController
+@RequestMapping("/auth")
+public class AuthController {
+    private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
+    @PostMapping("/signup")
+    public ResponseEntity<UserDto> signup(@RequestBody SignUpRequestDto signUpRequestDto)
+    {
+        return new ResponseEntity<>(authService.signUp(signUpRequestDto), HttpStatus.CREATED);
+    }
+    @PostMapping(value = "/login",
+    produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<LoginResponseDto> login(@RequestBody LoginDto loginDto, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse)
+    {
+        String[] tokens=authService.login(loginDto);
+        Cookie cookie=new Cookie("refreshToken",tokens[1]);
+        cookie.setHttpOnly(true);
+
+        httpServletResponse.addCookie(cookie);
+        return ResponseEntity.ok(new LoginResponseDto(tokens[0]));
+    }
+
+                    // refresh token whenever gets sign out we can call this API to get access token
+    @PostMapping(value="refresh")
+    public ResponseEntity<LoginResponseDto> refresh(HttpServletRequest request)
+    {
+        String refreshToken= Arrays.stream(request.getCookies()).
+                filter(cookie->"refreshToken".equals(cookie.getName()))
+                .findFirst()
+                .map(Cookie::getValue)
+                .orElseThrow(()->new AuthenticationServiceException("Refresh token not found inside the cookies"));
+        String accessToken= authService.refreshToken(refreshToken);
+        return ResponseEntity.ok(new LoginResponseDto(accessToken));
+
+    }
+}

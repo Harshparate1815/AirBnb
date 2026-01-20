@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/admin/hotels")
 @Slf4j
-                                                    // API layer : Handles the incoming Http requests and maps to service methods and return response
+// API layer : Handles the incoming Http requests and maps to service methods and return response
 public class HotelController {
     private final HotelService hotelService;
 

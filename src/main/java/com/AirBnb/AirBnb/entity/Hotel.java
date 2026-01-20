@@ -1,5 +1,6 @@
 package com.AirBnb.AirBnb.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -113,10 +114,11 @@ public class Hotel
     //    @OneToMany(mappedBy = "hotel",fetch = FetchType.LAZY)
 //    private List<Room> rooms;
 
-    @ManyToOne
+    @ManyToOne(optional=false,fetch = FetchType.LAZY)
     private User owner;
 
     @OneToMany(mappedBy = "hotel")
+    @JsonIgnore
     private List<Room> rooms;
 
     public List<Room> getRooms() {
